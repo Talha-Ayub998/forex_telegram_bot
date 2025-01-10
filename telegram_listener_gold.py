@@ -199,18 +199,30 @@ def process_order_with_box_message(message, symbol, order_type, volume=0.1):
     else:
         orders = []
 
-    # Extract price, SL, TP1, and TP2 from the message
-    price_match = re.search(r"@\s*(\d+(\.\d+)?)", message)
-    price = float(price_match.group(1)) if price_match else None
 
-    sl_match = re.search(r"Sl\s*:\s*(\d+(\.\d+)?)", message, re.IGNORECASE)
+    # price_high_match = re.search(r"buy now\s*([\d.]+)", message, re.IGNORECASE)
+    # price_high = float(price_high_match.group(1)) if price_high_match else None
+
+    # # Extract low price
+    # price_low_match = re.search(r"-\s*([\d.]+)", message, re.IGNORECASE)
+    # price_low = float(price_low_match.group(1)) if price_low_match else None
+
+    price = mt5.symbol_info_tick(
+        symbol).bid if order_type == "Sell" else mt5.symbol_info_tick(symbol).ask
+
+    # Extract SL
+    sl_match = re.search(r"SL\s*:\s*([\d.]+)", message, re.IGNORECASE)
     sl = float(sl_match.group(1)) if sl_match else None
 
-    tp1_match = re.search(r"Tp1\s*:\s*(\d+(\.\d+)?)", message, re.IGNORECASE)
-    tp1 = float(tp1_match.group(1)) if tp1_match else None
-
-    tp2_match = re.search(r"Tp2\s*:\s*(\d+(\.\d+)?)", message, re.IGNORECASE)
-    tp2 = float(tp2_match.group(1)) if tp2_match else None
+    # Extract each TP into separate variables
+    tp_matches = re.findall(r"TP\s*:\s*([\d.]+|open)", message, re.IGNORECASE)
+    tp1 = float(tp_matches[0]) if tp_matches and tp_matches[0].lower(
+    ) != "open" else "open"
+    tp2 = float(tp_matches[1]) if len(
+        tp_matches) > 1 and tp_matches[1].lower() != "open" else "open"
+    # tp3 = float(tp_matches[2]) if len(
+    #     tp_matches) > 2 and tp_matches[2].lower() != "open" else "open"
+    # tp4 = tp_matches[3] if len(tp_matches) > 3 else None  # "open" remains a string
     print("Data in the orders (in-memory):", orders)
 
     # Check if there are existing orders
@@ -247,9 +259,10 @@ def process_order_with_box_message(message, symbol, order_type, volume=0.1):
 
 api_id = '22871764'
 api_hash = '533041c6ece060f46924c19adf6df394'
-group_username = "goldfx_officials"  # The group username
+group_username = "gtmointernational"  # The group username
 # group_username = "testingnewbitpro"  # The group username
 chat_id = -1001841516484
+chat_id = None
 client = TelegramClient("session_name", api_id, api_hash)
 output_file = "messages.txt"
 
@@ -276,21 +289,21 @@ async def main():
         message = event.message.message
         # Check if the message contains "XAUUSD SELL" or "XAUUSD BUY"
         symbol = 'XAUUSD'
-        if "XAUUSD SELL NOW" in message.lower() or "XAUUSD BUY NOW" in message.lower():
+        if "gold sell now" in message.lower() or "gold buy now" in message.lower():
             # Determine order type
             order_type = "Sell" if "SELL" in message else "Buy"
 
             # Single msg with two trades
-            if "@" not in message:  # Check if additional details are missing
+            if "open" not in message:  # Check if additional details are missing
                 process_order_with_single_message(
                     symbol=symbol, order_type=order_type, volume=0.1)
 
-            elif "@" in message:
+            elif "open" in message:
                 process_order_with_box_message(message, symbol, order_type)
 
         else:
             # Exit if no relevant message
-            print("No matching trade instruction found.")
+            return
 
         # Get the current UTC timestamp
         timestamp = datetime.now(timezone.utc).strftime(

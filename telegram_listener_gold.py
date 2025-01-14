@@ -216,10 +216,8 @@ def process_order_with_box_message(message, symbol, order_type, volume=0.1):
 
     # Extract each TP into separate variables
     tp_matches = re.findall(r"TP\s*:\s*([\d.]+|open)", message, re.IGNORECASE)
-    tp1 = float(tp_matches[0]) if tp_matches and tp_matches[0].lower(
-    ) != "open" else "open"
-    tp2 = float(tp_matches[1]) if len(
-        tp_matches) > 1 and tp_matches[1].lower() != "open" else "open"
+    tp1 = float(tp_matches[0])
+    tp2 = float(tp_matches[1])
     # tp3 = float(tp_matches[2]) if len(
     #     tp_matches) > 2 and tp_matches[2].lower() != "open" else "open"
     # tp4 = tp_matches[3] if len(tp_matches) > 3 else None  # "open" remains a string
@@ -288,10 +286,11 @@ async def main():
         # Get message text
         message = event.message.message
         # Check if the message contains "XAUUSD SELL" or "XAUUSD BUY"
+        message = message.lower()
         symbol = 'XAUUSD'
-        if "gold sell now" in message.lower() or "gold buy now" in message.lower():
+        if "gold sell now" in message or "gold buy now" in message:
             # Determine order type
-            order_type = "Sell" if "SELL" in message else "Buy"
+            order_type = "Sell" if "sell" in message else "Buy"
 
             # Single msg with two trades
             if "open" not in message:  # Check if additional details are missing

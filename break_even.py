@@ -1,6 +1,6 @@
 import MetaTrader5 as mt5
 from time import sleep
-from datetime import datetime
+from threading import Thread
 
 # Function to initialize MetaTrader 5 connection
 
@@ -8,12 +8,12 @@ from datetime import datetime
 def initialize_meta_trader(path, login, password, servername):
     try:
         if not mt5.initialize(path=path, login=login, password=password, server=servername):
-            print(f"initialize() failed, error code = {mt5.last_error()}")
+            print(f"initialize() failed for login {login}, error code = {mt5.last_error()}")
             return False
-        print("MetaTrader 5 Initialized Successfully.")
+        print(f"MetaTrader 5 Initialized Successfully for login {login}.")
         return True
     except Exception as e:
-        print(f"Error initializing MetaTrader 5: {e}")
+        print(f"Error initializing MetaTrader 5 for login {login}: {e}")
         return False
 
 # Function to modify SL and TP for an existing order
@@ -21,7 +21,6 @@ def initialize_meta_trader(path, login, password, servername):
 
 def modify_sl_tp(order_id, sl=None, tp=None):
     try:
-        # Prepare modification request
         position = mt5.positions_get(ticket=order_id)
         if position:
             position = position[0]
@@ -30,7 +29,7 @@ def modify_sl_tp(order_id, sl=None, tp=None):
                 "symbol": position.symbol,
                 "position": order_id,
                 "tp": tp if tp is not None else position.tp,
-                "sl": 2728.07,
+                "sl": sl if sl is not None else position.sl,
                 "type_time": mt5.ORDER_TIME_GTC,
                 "type_filling": mt5.ORDER_FILLING_IOC
             }
@@ -48,59 +47,66 @@ def modify_sl_tp(order_id, sl=None, tp=None):
 
 
 def adjust_buy_position(position, current_price):
-    """Adjust SL/TP for a buy position dynamically."""
     distance_to_tp = position.tp - position.price_open
     distance_to_current = current_price - position.price_open
-
-    # If the price reaches 75% towards TP, update SL to break-even (25% from entry price)
     if distance_to_current >= 0.75 * distance_to_tp and position.sl != position.price_open + 0.25 * distance_to_tp:
-        # Set SL to 25% from the entry price
         new_sl = position.price_open + 0.25 * distance_to_tp
         modify_sl_tp(position.ticket, sl=new_sl)
-        print(f"Buy position: SL updated to {new_sl} & distance_to_current:{distance_to_current} & 75% {0.75 * distance_to_tp}")
+        print(f"Buy position: SL updated to {new_sl}")
 
 # Function to adjust sell position SL dynamically based on 75% of distance to TP
 
 
 def adjust_sell_position(position, current_price):
-    """Adjust SL/TP for a sell position dynamically based on 75% of distance to TP."""
     distance_to_tp = position.price_open - position.tp
     distance_to_current = position.price_open - current_price
-
-    # If the price reaches 75% towards TP, update SL to break-even (25% from entry price)
     if distance_to_current >= 0.75 * distance_to_tp and position.sl != position.price_open - 0.25 * distance_to_tp:
-        # Set SL to 25% from the entry price
         new_sl = position.price_open - 0.25 * distance_to_tp
         modify_sl_tp(position.ticket, sl=new_sl)
-        print(f"Sell position: SL updated to {new_sl} & distance_to_current:{distance_to_current} & 75% {0.75 * distance_to_tp}")
-# Function to handle continuous check for position SL and TP updates
+        print(f"Sell position: SL updated to {new_sl}")
 
 
-def monitor_positions():
-    while True:
-        # Get all open positions
-        positions = mt5.positions_get()
-        if positions:
-            for position in positions:
-                current_price = mt5.symbol_info_tick(
-                    position.symbol).ask if position.type == mt5.ORDER_TYPE_BUY else mt5.symbol_info_tick(position.symbol).bid
-                # Check and update Buy positions
-                if position.type == mt5.ORDER_TYPE_BUY:
-                    adjust_buy_position(position, current_price)
-                # Check and update Sell positions
-                elif position.type == mt5.ORDER_TYPE_SELL:
-                    adjust_sell_position(position, current_price)
-        else:
-            print("No open positions.")
-        sleep(5)  # Wait for 1 second before checking again
+def monitor_positions(path, login, password, servername):
+    if initialize_meta_trader(path, login, password, servername):
+        print(f"Starting to monitor positions for account {login}...")
+        while True:
+            positions = mt5.positions_get()
+            if positions:
+                for position in positions:
+                    current_price = (
+                        mt5.symbol_info_tick(position.symbol).ask
+                        if position.type == mt5.ORDER_TYPE_BUY
+                        else mt5.symbol_info_tick(position.symbol).bid
+                    )
+                    if position.type == mt5.ORDER_TYPE_BUY:
+                        adjust_buy_position(position, current_price)
+                    elif position.type == mt5.ORDER_TYPE_SELL:
+                        adjust_sell_position(position, current_price)
+            # else:
+            #     print(f"No open positions for account {login}.")
+            sleep(5)  # Wait before next check
+    else:
+        print(f"Failed to initialize MetaTrader 5 for account {login}.")
 
 
 if __name__ == "__main__":
-    LOGIN = 52114068
-    SERVER = 'ICMarketsSC-Demo'
-    PASSWORD = 'ska6kwS&k&$dnQ'
-    PATH = 'C:\\Program Files\\MetaTrader 5 IC Markets Global\\terminal64.exe'
+    accounts = [
+        {"login": 52114068, "password": 'ska6kwS&k&$dnQ', "server": 'ICMarketsSC-Demo',
+          "path": 'C:\\Program Files\\MetaTrader 5 IC Markets Global\\terminal64.exe'},
 
-    if initialize_meta_trader(PATH, LOGIN, PASSWORD, SERVER):
-        print("Starting to monitor positions...")
-        monitor_positions()  # Start monitoring positions
+        {"login": 61303556, "password": 'cTCXW#3T3pz2@bj', "server": 'Pepperstone-Demo',
+          "path": 'C:\\Program Files\\Pepperstone MetaTrader 5\\terminal64.exe'}
+    ]
+
+    threads = []
+    for account in accounts:
+        print(f"Starting thread for account {account['login']}")
+        thread = Thread(target=monitor_positions, args=(account["path"], account["login"], account["password"], account["server"]))
+        thread.start()
+        threads.append(thread)
+
+
+    for thread in threads:
+        thread.join()  # Wait for all threads to complete
+    import threading
+    print(f"Active threads: {threading.active_count()}")

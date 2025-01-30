@@ -2,7 +2,12 @@ import MetaTrader5 as mt5
 from time import sleep
 import os
 import json
+import logging
+import threading
 
+# Configure logging
+logging.basicConfig(filename='break_even.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Initialize MetaTrader 5 connection
 def initialize_meta_trader(path, login, password, servername):
@@ -16,12 +21,10 @@ def initialize_meta_trader(path, login, password, servername):
         print(f"Error initializing MetaTrader 5: {e}")
         return False
 
-
-# Update Stop Loss (SL) and cancel pending order
+# Apply break-even stop loss
 def apply_break_even(position, current_price, entry_price, symbol, action):
     try:
         new_sl = entry_price
-        # Modify the stop loss for the current position
         request = {
                 "action": mt5.TRADE_ACTION_SLTP,
                 "symbol": position.symbol,
@@ -34,13 +37,11 @@ def apply_break_even(position, current_price, entry_price, symbol, action):
         result = mt5.order_send(request)
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             print(f"Break-even SL applied: {new_sl} for order {position.ticket}")
-            # Cancel corresponding pending order
             cancel_pending_order(symbol, position.ticket)
         else:
             print(f"Failed to update SL for order {position.ticket}, error code: {result.retcode}")
     except Exception as e:
         print(f"Error applying break-even: {e}")
-
 
 # Cancel the pending order associated with the current order
 def cancel_pending_order(symbol, current_order_id):
@@ -50,27 +51,20 @@ def cancel_pending_order(symbol, current_order_id):
         return
 
     try:
-        # Load the order mapping JSON
         with open(file_name, "r") as file:
             data = json.load(file)
 
-        # Find the corresponding pending order
         mapping = next((item for item in data if item["current_order_id"] == current_order_id), None)
         if not mapping:
             print(f"No mapping found for current order ID {current_order_id}")
             return
 
         pending_order_id = mapping["pending_order_id"]
-        # Cancel the pending order
-        request = {
-            "action": mt5.TRADE_ACTION_REMOVE,
-            "order": pending_order_id,
-        }
+        request = {"action": mt5.TRADE_ACTION_REMOVE, "order": pending_order_id}
         result = mt5.order_send(request)
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             print(f"Pending order {pending_order_id} successfully canceled.")
 
-            # Remove the mapping from JSON
             updated_data = [item for item in data if item["current_order_id"] != current_order_id]
             with open(file_name, "w") as file:
                 json.dump(updated_data, file, indent=4)
@@ -80,36 +74,32 @@ def cancel_pending_order(symbol, current_order_id):
     except Exception as e:
         print(f"Error canceling pending order for order {current_order_id}: {e}")
 
-
 # Monitor open positions for break-even conditions
 def monitor_positions():
     while True:
         positions = mt5.positions_get()
         if positions:
             for position in positions:
-                # Skip if SL is already set to the entry price
                 if position.sl == position.price_open:
+                    # logging.info(f"Skipping position {position.ticket}: SL:{position.sl} already at entry price:{position.price_open}.")
                     continue
 
-                # Fetch current market price
                 current_price = mt5.symbol_info_tick(position.symbol).ask if position.type == mt5.ORDER_TYPE_BUY else mt5.symbol_info_tick(position.symbol).bid
                 entry_price = position.price_open
 
-                # Check for break-even condition
                 if position.type == mt5.ORDER_TYPE_BUY and current_price >= entry_price + 8:
-                    print("position", position.ticket)
-                    print("current_price", current_price)
-                    print("entry_price", entry_price)
                     apply_break_even(position, current_price, entry_price, position.symbol, "buy")
                 elif position.type == mt5.ORDER_TYPE_SELL and current_price <= entry_price - 8:
-                    print("position", position.ticket)
-                    print("current_price", current_price)
-                    print("entry_price", entry_price)
                     apply_break_even(position, current_price, entry_price, position.symbol, "sell")
-        else:
-            print("No open positions.")
-        sleep(5)  # Check every 5 seconds
+        # else:
+        #     print("No open positions.")
+        sleep(5)
 
+# Run monitoring in a separate thread
+def start_monitoring():
+    monitor_thread = threading.Thread(target=monitor_positions, daemon=True)
+    monitor_thread.start()
+    print("Monitoring started in a background thread.")
 
 # Main entry point
 if __name__ == "__main__":
@@ -119,5 +109,11 @@ if __name__ == "__main__":
     PATH = 'C:\\Program Files\\MetaTrader 5 EXNESS\\terminal64.exe'
 
     if initialize_meta_trader(PATH, int(LOGIN), PASSWORD, SERVER):
-        print("Starting to monitor positions...")
-        monitor_positions()  # Start monitoring positions
+        start_monitoring()
+        while True:
+            try:
+                sleep(1)  # Keep the main thread alive
+            except KeyboardInterrupt:
+                print("Shutting down monitoring...")
+                mt5.shutdown()  # Cleanly shutdown MT5
+                break

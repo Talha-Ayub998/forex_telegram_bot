@@ -1,8 +1,10 @@
-from flask import Flask, request, jsonify
 import logging
 import json
-import MetaTrader5 as mt5
+import threading
 import os
+
+import MetaTrader5 as mt5
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
@@ -94,7 +96,7 @@ def place_order_with_pending(symbol, action, timeframe, low_price):
             return
 
         # Place current market order
-        lot_size = 0.1
+        lot_size = 0.3
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
             "symbol": symbol,
@@ -167,10 +169,10 @@ def place_order_with_pending(symbol, action, timeframe, low_price):
         print(f"Error placing order: {e}")
 
 
-LOGIN = 241273863
-SERVER = 'Exness-MT5Trial'
-PASSWORD = 'Panda_22'
-PATH = 'C:\\Program Files\\MetaTrader 5 EXNESS\\terminal64.exe'
+LOGIN = 52154359
+SERVER = 'ICMarketsSC-Demo'
+PASSWORD = 'gA24C@Au6xs7zh'
+PATH = 'C:\\Program Files\\MetaTrader 5 IC Markets Global\\terminal64.exe'
 initialize_meta_trader(PATH, int(LOGIN), PASSWORD, SERVER)
 
 @app.route('/test', methods=['GET'])
@@ -184,15 +186,17 @@ def webhook():
         data = request.get_json()
         logging.info(f"Received alert: {data}")
 
-        symbol = data.get("ticker")+'m'
+        symbol = data.get("ticker")
         action = data.get("trade").lower()
         timeframe = int(data.get('time_frame'))
         low_price = float(data.get('price'))
 
-        # Call place_order function (implement this separately)
-        place_order_with_pending(symbol, action, timeframe, low_price)
+        # Run order placement in a separate thread
+        order_thread = threading.Thread(target=place_order_with_pending, args=(symbol, action, timeframe, low_price))
+        order_thread.start()
 
-        logging.info(f"Order placed for {symbol} to {action} of timeframe:{timeframe}M.")
+        logging.info(f"Order process started for {symbol} {action} on {timeframe}M timeframe.")
+
         return jsonify({"status": "success"}), 200
 
     except Exception as e:

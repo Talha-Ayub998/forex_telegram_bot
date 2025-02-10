@@ -70,20 +70,39 @@ def save_mapping(current_order_id, pending_order_id, symbol, action, timeframe, 
 def place_order_with_pending(symbol, action, timeframe, low_price):
     try:
         entry_price = mt5.symbol_info_tick(symbol).ask if action == "buy" else mt5.symbol_info_tick(symbol).bid
-
-        # Determine current order details
+        ###########################################
+        # CURRENT ORDER DETAILS
+        ###########################################
         if action == "buy":
             current_order_type = mt5.ORDER_TYPE_BUY
+
+            # Below We are setting sl here like (-1) for buy
             sl = low_price - 1
+
+            # The tp we add depends on the timeframe:
+            # - If the timeframe is 10 or 15, we add 29 units.
+            # - If the timeframe is 5, we add 24 units.
+            # - For any other timeframe, we add 19 units.
             tp = entry_price + (29 if timeframe in [10, 15] else 24 if timeframe == 5 else 19)
+
         elif action == "sell":
             current_order_type = mt5.ORDER_TYPE_SELL
+
+            # Below We are setting sl here like (+1) for sell
             sl = low_price + 1
+
+            # The tp we subtract depends on the timeframe:
+            # - If the timeframe is 10 or 15, we subtract 29 units.
+            # - If the timeframe is 5, we subtract 24 units.
+            # - For any other timeframe, we subtract 19 units.
             tp = entry_price - (29 if timeframe in [10, 15] else 24 if timeframe == 5 else 19)
         else:
             logging.error("Invalid order type")
             return
         lot_size = 0.3
+        ###########################################
+        # END CURRENT ORDER DETAILS
+        ###########################################
 
         # Place current market order
         request = {
@@ -104,16 +123,38 @@ def place_order_with_pending(symbol, action, timeframe, low_price):
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             current_order_id = result.order
             logging.info(f"Current order successfully placed: {current_order_id}")
+            ###########################################
+            # PENDING ORDER DETAILS
+            ###########################################
             if action == "buy":
                 pending_order_type = mt5.ORDER_TYPE_SELL_STOP
                 pending_entry_price = sl
+
+                # Below We are setting pending_sl here like (+10) for buy
                 pending_sl = pending_entry_price + 10
+
+                # The pending_tp we subtract depends on the timeframe:
+                # - If the timeframe is 10 or 15, we subtract 29 units.
+                # - If the timeframe is 5, we subtract 24 units.
+                # - For any other timeframe, we subtract 19 units.
                 pending_tp = pending_entry_price - (29 if timeframe in [10, 15] else 24 if timeframe == 5 else 19)
             elif action == "sell":
                 pending_order_type = mt5.ORDER_TYPE_BUY_STOP
                 pending_entry_price = sl
+
+                # Below We are setting pending_sl here like (-10) for sell
                 pending_sl = pending_entry_price - 10
+
+                # The pending_tp we add depends on the timeframe:
+                # - If the timeframe is 10 or 15, we add 29 units.
+                # - If the timeframe is 5, we add 24 units.
+                # - For any other timeframe, we add 19 units.
                 pending_tp = pending_entry_price + (29 if timeframe in [10, 15] else 24 if timeframe == 5 else 19)
+
+            ###########################################
+            # END PENDING ORDER DETAILS
+            ###########################################
+
             # Place the pending order
             pending_request = {
                 "action": mt5.TRADE_ACTION_PENDING,

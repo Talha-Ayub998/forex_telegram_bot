@@ -24,64 +24,65 @@ def initialize_meta_trader(path, login, password, servername):
         logging.error(f"Error initializing MetaTrader5: {e}")
         return False
 
+
+def place_market_order(symbol, action, volume, price, sl, tp, comment):
+    """Function to place a market order."""
+    order_type = mt5.ORDER_TYPE_BUY if action == "buy" else mt5.ORDER_TYPE_SELL
+
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": volume,
+        "type": order_type,
+        "price": price,
+        "sl": float(sl),
+        "tp": float(tp),
+        "magic": 123456,
+        "comment": comment,
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+
+    logging.info(f"Placing {action} order: {request}")
+    result = mt5.order_send(request)
+
+    if result.retcode == mt5.TRADE_RETCODE_DONE:
+        logging.info(f"Order placed successfully: {result.order}")
+        return result.order
+    else:
+        logging.error(f"Failed to place order: {result.retcode}")
+        return None
+
+
 def place_order(symbol, action, timeframe, low_price):
+    """Main function to place initial order and split into two take profits."""
     try:
         entry_price = mt5.symbol_info_tick(symbol).ask if action == "buy" else mt5.symbol_info_tick(symbol).bid
-        ###########################################
-        # CURRENT ORDER DETAILS
-        ###########################################
+        lot_size = 0.1  # Example lot size
+
         if action == "buy":
-            current_order_type = mt5.ORDER_TYPE_BUY
-
-            # Below We are setting sl here like (-1) for buy
-            sl = low_price - 1
-
-            # The tp we add depends on the timeframe:
-            # - If the timeframe is 10 or 15, we add 29 units.
-            # - If the timeframe is 5, we add 24 units.
-            # - For any other timeframe, we add 19 units.
-            tp = entry_price + (29 if timeframe in [10, 15] else 24 if timeframe == 5 else 19)
-
+            sl = low_price - 10
+            tp1 = entry_price + 3
+            tp2 = entry_price + 6
         elif action == "sell":
-            current_order_type = mt5.ORDER_TYPE_SELL
-
-            # Below We are setting sl here like (+1) for sell
-            sl = low_price + 1
-
-            # The tp we subtract depends on the timeframe:
-            # - If the timeframe is 10 or 15, we subtract 29 units.
-            # - If the timeframe is 5, we subtract 24 units.
-            # - For any other timeframe, we subtract 19 units.
-            tp = entry_price - (29 if timeframe in [10, 15] else 24 if timeframe == 5 else 19)
+            sl = low_price + 10
+            tp1 = entry_price - 3
+            tp2 = entry_price - 6
         else:
-            logging.error("Invalid order type")
+            logging.error("Invalid action type")
             return
-        lot_size = 0.3
-        ###########################################
-        # END CURRENT ORDER DETAILS
-        ###########################################
 
-        # Place current market order
-        request = {
-            "action": mt5.TRADE_ACTION_DEAL,
-            "symbol": symbol,
-            "volume": lot_size,
-            "type": current_order_type,
-            "price": entry_price,
-            "sl": float(sl),
-            "tp": float(tp),
-            "magic": 123456,
-            "comment": f"{timeframe}-RSI Signal",
-            "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": mt5.ORDER_FILLING_IOC,
-        }
-        logging.info(f"Placing current market order: {request}")
-        result = mt5.order_send(request)
-        if result.retcode == mt5.TRADE_RETCODE_DONE:
-            current_order_id = result.order
-            logging.info(f"Current order successfully placed: {current_order_id}")
+        # Place first order for TP1
+        order1 = place_market_order(symbol, action, lot_size / 2, entry_price, sl, tp1, f"{timeframe}-RSI TP1")
+
+        # Place second order for TP2
+        order2 = place_market_order(symbol, action, lot_size / 2, entry_price, sl, tp2, f"{timeframe}-RSI TP2")
+
+        if order1 and order2:
+            logging.info(f"Both TP1 and TP2 orders placed successfully: {order1}, {order2}")
         else:
-            logging.error(f"Failed to place current order: {result.retcode}")
+            logging.error("Failed to place one or both TP orders.")
+
     except Exception as e:
         logging.error(f"Error placing order: {e}")
 

@@ -46,27 +46,34 @@ def modify_sl_tp(order_id, sl=None, tp=None):
     except Exception as e:
         logging.info(f"Error modifying order {order_id}: {e}")
 
-# Function to adjust buy position SL dynamically based on 75% of distance to TP
 
 
+# Function to adjust buy position SL dynamically based on 50% of distance to TP
 def adjust_buy_position(position, current_price):
+
     distance_to_tp = position.tp - position.price_open
     distance_to_current = current_price - position.price_open
-    if distance_to_current >= 0.75 * distance_to_tp and round(position.sl, 2) != round(position.price_open + 0.25 * distance_to_tp, 2):
-        new_sl = position.price_open + 0.25 * distance_to_tp
-        modify_sl_tp(position.ticket, sl=new_sl)
-        logging.info(f"Buy position: SL updated to {new_sl}")
 
-# Function to adjust sell position SL dynamically based on 75% of distance to TP
+    if distance_to_current >= 0.50 * distance_to_tp:
+        new_sl = position.price_open + 0.18 * distance_to_tp
+
+        if round(position.sl, 2) != round(new_sl, 2):
+            modify_sl_tp(position.ticket, sl=new_sl)
+            logging.info(f"Buy position: SL updated to {new_sl}")
 
 
+# Function to adjust sell position SL dynamically based on 50% of distance to TP
 def adjust_sell_position(position, current_price):
+
     distance_to_tp = position.price_open - position.tp
     distance_to_current = position.price_open - current_price
-    if distance_to_current >= 0.75 * distance_to_tp and round(position.sl, 2) != round(position.price_open - 0.25 * distance_to_tp, 2):
-        new_sl = position.price_open - 0.25 * distance_to_tp
-        modify_sl_tp(position.ticket, sl=new_sl)
-        logging.info(f"Sell position: SL updated to {new_sl}")
+
+    if distance_to_current >= 0.50 * distance_to_tp:
+        new_sl = position.price_open - 0.18 * distance_to_tp
+
+        if round(position.sl, 2) != round(new_sl, 2):
+            modify_sl_tp(position.ticket, sl=new_sl)
+            logging.info(f"Sell position: SL updated to {new_sl}")
 
 
 def monitor_positions():

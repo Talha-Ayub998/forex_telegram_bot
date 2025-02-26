@@ -14,12 +14,12 @@ logging.basicConfig(filename='break_even_vip.log', level=logging.INFO,
 def initialize_meta_trader(path, login, password, servername):
     try:
         if not mt5.initialize(path=path, login=login, password=password, server=servername):
-            print(f"initialize() failed for login {login}, error code = {mt5.last_error()}")
+            logging.info(f"initialize() failed for login {login}, error code = {mt5.last_error()}")
             return False
-        print(f"MetaTrader 5 Initialized Successfully for login {login}.")
+        logging.info(f"MetaTrader 5 Initialized Successfully for login {login}.")
         return True
     except Exception as e:
-        print(f"Error initializing MetaTrader 5 for login {login}: {e}")
+        logging.error(f"Error initializing MetaTrader 5 for login {login}: {e}")
         return False
 
 # Function to modify SL and TP for an existing order
@@ -41,13 +41,13 @@ def modify_sl_tp(order_id, sl=None, tp=None):
             }
             result = mt5.order_send(request)
             if result.retcode == mt5.TRADE_RETCODE_DONE:
-                print(f"Order {order_id} updated successfully: SL={request['sl']}, TP={request['tp']}")
+                logging.info(f"Order {order_id} updated successfully: SL={request['sl']}, TP={request['tp']}")
             else:
-                print(f"Failed to modify order {order_id}: {result.comment} (Retcode: {result.retcode})")
+                logging.info(f"Failed to modify order {order_id}: {result.comment} (Retcode: {result.retcode})")
         else:
-            print(f"Position with ID {order_id} not found.")
+            logging.info(f"Position with ID {order_id} not found.")
     except Exception as e:
-        print(f"Error modifying order {order_id}: {e}")
+        logging.error(f"Error modifying order {order_id}: {e}")
 
 # Function to adjust buy position SL dynamically based on 75% of distance to TP
 

@@ -34,6 +34,7 @@ for _, signal in signals_df.iterrows():
     entry_price = signal["Price"]
     signal_type = signal["Signal"].upper()
     low = signal['Low']
+    high = signal['High']
 
     lot_size = 0.2  # 10k balance = 0.2 lots
     sl_moved = False
@@ -42,7 +43,7 @@ for _, signal in signals_df.iterrows():
     if signal_type == "BUY":
         sl = low - initial_sl_offset
     elif signal_type == "SELL":
-        sl = low + initial_sl_offset
+        sl = high + initial_sl_offset
     else:
         continue
 

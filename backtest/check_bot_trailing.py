@@ -24,8 +24,8 @@ results = []
 
 # Strategy parameters (in actual price units)
 initial_sl_offset = 3          # SL is 400 points below entry
-sl_move_trigger = 2            # Price must move +400 to adjust SL
-sl_after_move = 1              # New SL = entry + 100
+sl_move_trigger = 3            # Price must move +400 to adjust SL
+sl_after_move = 2              # New SL = entry + 100
 profit_target_pct = 0.01         # Target 1% floating profit
 
 # Begin trade-by-trade simulation
@@ -38,6 +38,7 @@ for _, signal in signals_df.iterrows():
 
     lot_size = 0.2  # 10k balance = 0.2 lots
     sl_moved = False
+    sl_type = "Initial"
 
     # Set initial SL based on signal type
     if signal_type == "BUY":
@@ -61,6 +62,7 @@ for _, signal in signals_df.iterrows():
             if not sl_moved and current_price >= entry_price + sl_move_trigger:
                 sl = entry_price + sl_after_move  # e.g., 1000 + 100 = 1100
                 sl_moved = True
+                sl_type = "Moved"
 
             # Step 2: Exit if current price <= SL
             if current_price <= sl:
@@ -86,6 +88,7 @@ for _, signal in signals_df.iterrows():
             if not sl_moved and current_price <= entry_price - sl_move_trigger:
                 sl = entry_price - sl_after_move
                 sl_moved = True
+                sl_type = "Moved"
 
             if current_price >= sl:
                 loss = abs(entry_price - sl) * lot_size * contract_size
@@ -108,17 +111,18 @@ for _, signal in signals_df.iterrows():
     # Record the trade if it was closed
     if outcome in ["WIN", "LOSS"]:
         results.append({
-            "Entry Time": entry_time,
-            "Signal": signal_type,
-            "Entry Price": entry_price,
-            "Lot Size": round(lot_size, 4),
-            "SL Exit Price": round(sl, 2),
-            "SL Moved": sl_moved,
-            "Exit Time": exit_time,
-            "Outcome": outcome,
-            "Profit": round(profit, 2),
-            "Balance After Trade": round(current_balance, 2)
-        })
+        "Entry Time": entry_time,
+        "Signal": signal_type,
+        "Entry Price": entry_price,
+        "Lot Size": round(lot_size, 4),
+        "SL Exit Price": round(sl, 2),
+        "SL Moved": sl_moved,
+        "SL Type": sl_type,  # <-- NEW FIELD
+        "Exit Time": exit_time,
+        "Outcome": outcome,
+        "Profit": round(profit, 2),
+        "Balance After Trade": round(current_balance, 2)
+    })
 
 # Save to CSV
 results_df = pd.DataFrame(results)

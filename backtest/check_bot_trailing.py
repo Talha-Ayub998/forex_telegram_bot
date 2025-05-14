@@ -23,8 +23,8 @@ contract_size = 100
 results = []
 
 # Strategy parameters (in actual price units)
-initial_sl_offset = 4          # SL is 400 points below entry
-sl_move_trigger = 4            # Price must move +400 to adjust SL
+initial_sl_offset = 3          # SL is 400 points below entry
+sl_move_trigger = 2            # Price must move +400 to adjust SL
 sl_after_move = 1              # New SL = entry + 100
 profit_target_pct = 0.01         # Target 1% floating profit
 
@@ -33,15 +33,16 @@ for _, signal in signals_df.iterrows():
     entry_time = signal["datetime"]
     entry_price = signal["Price"]
     signal_type = signal["Signal"].upper()
+    low = signal['Low']
 
     lot_size = 0.2  # 10k balance = 0.2 lots
     sl_moved = False
 
     # Set initial SL based on signal type
     if signal_type == "BUY":
-        sl = entry_price - initial_sl_offset
+        sl = low - initial_sl_offset
     elif signal_type == "SELL":
-        sl = entry_price + initial_sl_offset
+        sl = low + initial_sl_offset
     else:
         continue
 

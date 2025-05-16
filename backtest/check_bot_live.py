@@ -5,9 +5,9 @@ import time
 from datetime import datetime
 
 # === CONFIG ===
-LOGIN = 52154359
+LOGIN = 52285388
 SERVER = 'ICMarketsSC-Demo'
-PASSWORD = 'gA24C@Au6xs7zh'
+PASSWORD = 'Jmd!4aT$eg!rsa'
 PATH = 'C:\\Program Files\\MetaTrader 5 IC Markets Global\\terminal64.exe'
 
 SYMBOL = "XAUUSD"
@@ -58,19 +58,23 @@ def place_order(symbol, action, entry_price, sl, tp, comment):
         "type": order_type,
         "price": entry_price,
         "sl": sl,
-        "tp": tp,
+        # "tp": tp,
         "magic": 20052025,
         "comment": comment,
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
         "deviation": 10,
     }
-
     result = mt5.order_send(request)
+
     if result.retcode != mt5.TRADE_RETCODE_DONE:
         logging.error(f"❌ Order failed: {result.retcode}, {result.comment}")
     else:
-        logging.info(f"✅ {action} order placed @ {entry_price} | SL: {sl} | TP: {tp}")
+        order_ticket = result.order
+        logging.info(
+            f"✅ {action} order placed | Ticket: {order_ticket} | Entry: {entry_price} | SL: {sl} | TP: None (manual monitor)"
+        )
+
 
 # === MAIN LOOP ===
 def run_strategy():

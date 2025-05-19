@@ -42,9 +42,9 @@ def detect_sma_crossover(df):
     current = df.iloc[-1]
     prev = df.iloc[-2]
 
-    if prev['low'] < prev['sma'] and current['close'] > current['sma'] and current['close'] > current['open'] and current['low'] > current['sma']:
+    if prev['close'] < prev['sma'] and current['close'] > current['sma']:
         return "BUY", current
-    elif prev['high'] > prev['sma'] and current['close'] < current['sma'] and current['close'] < current['open'] and current['high'] < current['sma']:
+    elif prev['close'] > prev['sma'] and current['close'] < current['sma']:
         return "SELL", current
     return None, None
 
@@ -113,7 +113,7 @@ def run_strategy():
             entry_price = mt5.symbol_info_tick(SYMBOL).ask if signal == "BUY" else mt5.symbol_info_tick(SYMBOL).bid
             sl = candle['low'] - INITIAL_SL_OFFSET if signal == "BUY" else candle['high'] + INITIAL_SL_OFFSET
             tp = entry_price + entry_price * TP_PCT if signal == "BUY" else entry_price - entry_price * TP_PCT
-            place_order(SYMBOL, signal, entry_price, sl, tp, f"{signal_time} SMA Crossover")
+            place_order(SYMBOL, signal, entry_price, sl, tp, f"LIVE-GOLD")
             last_signal_time = signal_time
         else:
             logging.info("No signal or already processed.")

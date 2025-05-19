@@ -89,15 +89,19 @@ def monitor_open_trades():
                         sl_update_needed = True
 
                 if sl_update_needed:
-                    result = mt5.order_modify(
-                        ticket=ticket,
-                        price=entry_price,
-                        sl=new_sl,
-                        tp=0.0,
-                        deviation=10,
-                        type_time=mt5.ORDER_TIME_GTC,
-                        type_filling=mt5.ORDER_FILLING_IOC
-                    )
+                    result = mt5.order_send({
+                        "action": mt5.TRADE_ACTION_SLTP,
+                        "symbol": SYMBOL,
+                        "position": ticket,
+                        "sl": new_sl,
+                        "tp": 0.0,
+                        "deviation": 10,
+                        "magic": 20052025,
+                        "comment": "SL Moved",
+                        "type_time": mt5.ORDER_TIME_GTC,
+                        "type_filling": mt5.ORDER_FILLING_IOC
+                    })
+
                     if result.retcode == mt5.TRADE_RETCODE_DONE:
                         logging.info(f"🔁 SL moved to {new_sl} for ticket {ticket}")
                         moved_sl_tickets.add(ticket)

@@ -58,22 +58,41 @@ def place_order(symbol, action, entry_price, sl, tp, comment):
         "type": order_type,
         "price": entry_price,
         "sl": sl,
-        # "tp": tp,
+        # "tp": tp,  # manually handled, not sent
         "magic": 20052025,
         "comment": comment,
         "type_time": mt5.ORDER_TIME_GTC,
         "type_filling": mt5.ORDER_FILLING_IOC,
         "deviation": 10,
     }
+
+    # Send order
     result = mt5.order_send(request)
 
+    if result is None:
+        logging.error("❌ order_send returned None — MT5 rejected the request.")
+        logging.error(f"📋 Last MT5 Error: {mt5.last_error()}")
+        logging.error("📝 Request sent:")
+        for key, value in request.items():
+            logging.error(f"  {key}: {value}")
+        return
+
     if result.retcode != mt5.TRADE_RETCODE_DONE:
-        logging.error(f"❌ Order failed: {result.retcode}, {result.comment}")
+        logging.error(f"❌ Order failed with retcode: {result.retcode} — {result.comment}")
+        logging.error("📝 Request sent:")
+        for key, value in request.items():
+            logging.error(f"  {key}: {value}")
+        logging.error("📋 Full result object:")
+        logging.error(str(result))
     else:
         order_ticket = result.order
-        logging.info(
-            f"✅ {action} order placed | Ticket: {order_ticket} | Entry: {entry_price} | SL: {sl} | TP: None (manual monitor)"
-        )
+        logging.info("✅ Order placed successfully:")
+        logging.info(f"  Ticket: {order_ticket}")
+        logging.info(f"  Entry Price: {entry_price}")
+        logging.info(f"  SL: {sl}")
+        logging.info(f"  TP: None (manual monitor)")
+        logging.info(f"  Volume: {LOT_SIZE}")
+        logging.info(f"  Type: {action}")
 
 
 # === MAIN LOOP ===
